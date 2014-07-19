@@ -747,9 +747,15 @@ enum { //Change Member Infos
 };
 
 enum guild_permission { // Guild permissions
-	GPERM_INVITE = 0x01,
-	GPERM_EXPEL = 0x10,
-	GPERM_BOTH = GPERM_INVITE|GPERM_EXPEL,
+	GPERM_INVITE  = 0x001,
+	GPERM_EXPEL   = 0x010,
+#if PACKETVER >= 20140205
+	GPERM_STORAGE = 0x100,
+	GPERM_ALL     = GPERM_INVITE|GPERM_EXPEL|GPERM_STORAGE,
+#else
+	GPERM_ALL     = GPERM_INVITE|GPERM_EXPEL,
+#endif
+	GPERM_DEFAULT = GPERM_ALL,
 };
 
 enum {
