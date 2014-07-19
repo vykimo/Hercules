@@ -129,7 +129,7 @@
 #define MAX_FAME 1000000000
 #define MAX_CART 100
 #define MAX_SKILL 1478
-#define MAX_SKILL_ID 10015   // [Ind/Hercules] max used skill ID
+#define MAX_SKILL_ID 10016   // [Ind/Hercules] max used skill ID
 // Update this max as necessary. 86 is the value needed for Expanded Super Novice.
 #define MAX_SKILL_TREE 86
 #define DEFAULT_WALK_SPEED 150
@@ -143,7 +143,7 @@
 #define MAX_GUILDPOSITION 20             // Increased max guild positions to accomodate for all members [Valaris] (removed) [PoW]
 #define MAX_GUILDEXPULSION 32
 #define MAX_GUILDALLIANCE 16
-#define MAX_GUILDSKILL 15                // Increased max guild skills because of new skills [Sara-chan]
+#define MAX_GUILDSKILL 17                // Increased max guild skills because of new skills [Sara-chan]
 #define MAX_GUILDLEVEL 50
 #define MAX_GUARDIANS 8                  // Local max per castle. [Skotlex]
 #define MAX_QUEST_OBJECTIVES 3           // Max quest objectives for a quest
@@ -400,12 +400,12 @@ struct storage_data {
 };
 
 struct guild_storage {
-	int dirty;
 	int guild_id;
-	short storage_status;
-	short storage_amount;
-	struct item items[MAX_GUILD_STORAGE];
-	unsigned short lock;
+	bool storage_status;   ///< Whether storage is in use by other guild members
+	bool dirty;            ///< Whether the struct was modified and needs to be saved
+	unsigned short lock;   ///< Whenever item retrieval is happening and the storage can't be accessed
+	uint16 storage_amount; ///< Current amount of items; @see guild.max_storage
+	struct item *items;    ///< Item list
 };
 
 struct s_pet {
@@ -660,7 +660,16 @@ struct guild_skill {
 struct channel_data;
 struct guild {
 	int guild_id;
-	short guild_lv, connect_member, max_member, average_lv;
+	uint16 guild_lv, connect_member, max_member, average_lv;
+	/**
+	 * Max storage size that's sent to players, it doesn't necessarily
+	 * represent guild_storage->items size.
+	 * If max_storage is smaller than storage_amount then storage_amount
+	 * represents guild_storage->items current size.
+	 * @see storage_guild_storage_create_items
+	 * @see storage_guild_storage_grow
+	 */
+	uint16 max_storage;
 	uint64 exp;
 	unsigned int next_exp;
 	int skill_point;
@@ -775,6 +784,8 @@ enum {
 	GD_RESTORE=10012,
 	GD_EMERGENCYCALL=10013,
 	GD_DEVELOPMENT=10014,
+	GD_ITEMEMERGENCYCALL = 10015,
+	GD_GUILD_STORAGE = 10016,
 	GD_MAX,
 };
 
