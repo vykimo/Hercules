@@ -1378,12 +1378,10 @@ int guild_skillupack(int guild_id,uint16 skill_id,int account_id) {
 			case GD_HAWKEYES:
 				guild->aura_refresh(sd,skill_id,g->skill[skill_id-GD_SKILLBASE].lv);
 				break;
-#if PACKETVER >= 20140205
 			// Guild storage handling
 			case GD_GUILD_STORAGE:
 				gstorage->grow(g);
 				break;
-#endif
 		}
 	}
 
