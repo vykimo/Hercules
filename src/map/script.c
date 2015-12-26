@@ -2587,12 +2587,11 @@ struct script_code* parse_script(const char *src,const char *file,int line,int o
 #endif
 #ifdef SCRIPT_DEBUG_DISASM
 	i = 0;
-	while(i < script->pos) {
-		int j = i;
+	while (i < script->pos) {
 		c_op op = script->get_com(script->buf,&i);
+		int j = i;
 
 		ShowMessage("%06x %s", i, script->op2name(op));
-		j = i;
 		switch(op) {
 		case C_INT:
 			ShowMessage(" %d", script->get_num(script->buf,&i));
@@ -2856,13 +2855,14 @@ void* get_val2(struct script_state* st, int64 uid, struct reg_db *ref) {
  **/
 void script_array_ensure_zero(struct script_state *st, struct map_session_data *sd, int64 uid, struct reg_db *ref) {
 	const char *name = script->get_str(script_getvarid(uid));
-	// is here st can be null pointer and st->rid is wrong?
-	struct reg_db *src = script->array_src(st, sd ? sd : st->rid ? map->id2sd(st->rid) : NULL, name, ref);
+	struct reg_db *src = NULL;
 	bool insert = false;
 
-	if (sd && !st) {
+	if (sd == NULL && st != NULL) {
 		/* when sd comes, st isn't available */
 		insert = true;
+		if (st->rid != 0)
+			sd = map->id2sd(st->rid);
 	} else {
 		if( is_string_variable(name) ) {
 			char* str = (char*)script->get_val2(st, uid, ref);
@@ -2877,7 +2877,9 @@ void script_array_ensure_zero(struct script_state *st, struct map_session_data *
 		}
 	}
 
-	if (src && src->arrays) {
+	src = script->array_src(st, sd, name, ref);
+
+	if (src != NULL && src->arrays != NULL) {
 		struct script_array *sa = idb_get(src->arrays, script_getvarid(uid));
 		if (sa) {
 			unsigned int i;
@@ -3697,7 +3699,7 @@ void op_2str(struct script_state* st, int op, const char* s1, const char* s2)
 			pcre *compiled_regex;
 			pcre_extra *extra_regex;
 			const char *pcre_error, *pcre_match;
-			int pcre_erroroffset, offsetcount, i;
+			int pcre_erroroffset, offsetcount;
 			int offsets[256*3]; // (max_capturing_groups+1)*3
 
 			compiled_regex = libpcre->compile(s2, 0, &pcre_error, &pcre_erroroffset, NULL);
@@ -3738,8 +3740,9 @@ void op_2str(struct script_state* st, int op, const char* s1, const char* s2)
 				return;
 			}
 
-			if( op == C_RE_EQ ) {
-				for( i = 0; i < offsetcount; i++ ) {
+			if (op == C_RE_EQ) {
+				int i;
+				for (i = 0; i < offsetcount; i++) {
 					libpcre->get_substring(s1, offsets, offsetcount, i, &pcre_match);
 					mapreg->setregstr(reference_uid(script->add_str("$@regexmatch$"), i), pcre_match);
 					libpcre->free_substring(pcre_match);
@@ -4789,7 +4792,6 @@ void script_load_translations(void) {
 
 	if( total ) {
 		DBIterator *main_iter;
-		DBIterator *sub_iter;
 		DBMap *string_db;
 		struct string_translation *st = NULL;
 		uint32 j = 0;
@@ -4798,9 +4800,9 @@ void script_load_translations(void) {
 		script->translation_buf_size = total;
 
 		main_iter = db_iterator(script->translation_db);
-		for( string_db = dbi_first(main_iter); dbi_exists(main_iter); string_db = dbi_next(main_iter) ) {
-			sub_iter = db_iterator(string_db);
-			for( st = dbi_first(sub_iter); dbi_exists(sub_iter); st = dbi_next(sub_iter) ) {
+		for (string_db = dbi_first(main_iter); dbi_exists(main_iter); string_db = dbi_next(main_iter)) {
+			DBIterator *sub_iter = db_iterator(string_db);
+			for (st = dbi_first(sub_iter); dbi_exists(sub_iter); st = dbi_next(sub_iter)) {
 				script->translation_buf[j++] = st->buf;
 			}
 			dbi_destroy(sub_iter);
@@ -4825,8 +4827,8 @@ void script_load_translations(void) {
 /**
  *
  **/
-const char * script_get_translation_file_name(const char *file) {
-	static char file_name[200];
+const char *script_get_translation_file_name(const char *file)
+{
 	int i, len = (int)strlen(file), last_bar = -1, last_dot = -1;
 
 	for(i = 0; i < len; i++) {
@@ -4837,6 +4839,7 @@ const char * script_get_translation_file_name(const char *file) {
 	}
 
 	if( last_bar != -1 || last_dot != -1 ) {
+		static char file_name[200];
 		if( last_bar != -1 && last_dot < last_bar )
 			last_dot = -1;
 		safestrncpy(file_name, file+(last_bar >= 0 ? last_bar+1 : 0), ( last_dot >= 0 ? ( last_bar >= 0 ? last_dot - last_bar : last_dot ) : sizeof(file_name) ));
@@ -4868,7 +4871,7 @@ void script_load_translation(const char *file, uint8 lang_id, uint32 *total) {
 		atcommand->expand_message_table();
 
 	while(fgets(line, sizeof(line), fp)) {
-		size_t len = strlen(line), cursor = 0;
+		size_t len = strlen(line);
 
 		if( len <= 1 )
 			continue;
@@ -4877,6 +4880,7 @@ void script_load_translation(const char *file, uint8 lang_id, uint32 *total) {
 			continue;
 
 		if( strncasecmp(line,"msgctxt \"", 9) == 0 ) {
+			int cursor = 0;
 			msgctxt[0] = '\0';
 			for(i = 9; i < len - 2; i++) {
 				if( line[i] == '\\' && line[i+1] == '"' ) {
@@ -4884,7 +4888,7 @@ void script_load_translation(const char *file, uint8 lang_id, uint32 *total) {
 					i++;
 				} else
 					msgctxt[cursor] = line[i];
-				if( ++cursor >= sizeof(msgctxt) - 1 )
+				if (++cursor >= (int)sizeof(msgctxt) - 1)
 					break;
 			}
 			msgctxt[cursor] = '\0';
@@ -18419,21 +18423,11 @@ BUILDIN(getcharip) {
 	}
 
 	/* check for IP */
-	if (!sockt->session[sd->fd]->client_addr) {
+	if (sd->fd == 0 || sockt->session[sd->fd] == NULL || sockt->session[sd->fd]->client_addr == 0) {
 		script_pushconststr(st, "");
-		return true;
-	}
-
-	/* return the client ip_addr converted for output */
-	if (sd && sd->fd && sockt->session[sd->fd])
-	{
-		/* initiliaze */
-		const char *ip_addr = NULL;
-		uint32 ip;
-
-		/* set ip, ip_addr and convert to ip and push str */
-		ip = sockt->session[sd->fd]->client_addr;
-		ip_addr = sockt->ip2str(ip, NULL);
+	} else {
+		uint32 ip = sockt->session[sd->fd]->client_addr;
+		const char *ip_addr = sockt->ip2str(ip, NULL);
 		script_pushstrcopy(st, ip_addr);
 	}
 
