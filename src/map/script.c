@@ -1327,7 +1327,7 @@ const char* parse_simpleexpr(const char *p)
 			VECTOR_ENSURE(script->lang_export_unescaped_buf, 1, 512);
 			VECTOR_PUSH(script->lang_export_unescaped_buf, '\0');
 
-			fprintf(script->lang_export_fp, "#: %s\n"
+			fprintf(script->lang_export_fp, "\n#: %s\n"
 					"# %s\n"
 					"msgctxt \"%s\"\n"
 					"msgid \"%s\"\n"
