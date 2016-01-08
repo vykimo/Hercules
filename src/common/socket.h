@@ -79,7 +79,12 @@ struct hplugin_data_store;
 #define RFIFO2PTR(fd) ((const void *)(sockt->session[fd]->rdata + sockt->session[fd]->rdata_pos))
 
 // buffer I/O macros
-#define RBUFP(p,pos) (((uint8*)(p)) + (pos))
+static inline const void *RBUFP_(const void *p, int pos) __attribute__((const, unused));
+static inline const void *RBUFP_(const void *p, int pos)
+{
+	return ((const uint8 *)p) + pos;
+}
+#define RBUFP(p,pos) RBUFP_(p, (int)(pos))
 #define RBUFB(p,pos) (*(const uint8 *)RBUFP((p),(pos)))
 #define RBUFW(p,pos) (*(const uint16 *)RBUFP((p),(pos)))
 #define RBUFL(p,pos) (*(const uint32 *)RBUFP((p),(pos)))
